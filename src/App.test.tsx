@@ -1,8 +1,8 @@
 import * as React from "react"
-import {render, fireEvent, screen, ByRoleMatcher, ByRoleOptions, queryAllByRole} from '@testing-library/react'
+import {render, fireEvent, screen, ByRoleMatcher, ByRoleOptions, queryAllByRole, findByRole, FindByRole, GetByRole, findAllByRole, FindAllByRole} from '@testing-library/react'
 import { App } from "./App"
+import {buildQueries} from '@testing-library/react'
 
-type Maybe<T> = T | undefined | null
 type Container = HTMLElement | Document | ShadowRoot
 type RoleArgs = [container: HTMLElement, role: ByRoleMatcher, options?: ByRoleOptions | undefined]
 type ScreenRoleArgs = [role: ByRoleMatcher, options?: ByRoleOptions | undefined]
@@ -35,18 +35,6 @@ function deepQuerySelectorAll (container: Container, selectors: string, elements
   return elements
 }
 
-function queryByShadowRole<T extends HTMLElement = HTMLElement>(...args: RoleArgs): Maybe<T> {
-  const elements = queryAllByShadowRole(...args)
-
-  if (elements == null || elements.length <= 0) return null
-
-  return elements[0] as T
-}
-
-function screenQueryByShadowRole<T extends HTMLElement = HTMLElement>(role: ByRoleMatcher, options?: ByRoleOptions | undefined): Maybe<T> {
-  return queryByShadowRole(document.documentElement, role, options)
-}
-
 function queryAllByShadowRole<T extends HTMLElement = HTMLElement>(container: HTMLElement, role: ByRoleMatcher, options?: ByRoleOptions | undefined): T[] {
   const elements = deepQuerySelectorAll(container, "*")
 
@@ -54,44 +42,33 @@ function queryAllByShadowRole<T extends HTMLElement = HTMLElement>(container: HT
   return elements.map((el) => queryAllByRole(el, role, options)).flat(Infinity) as T[]
 }
 
-function screenQueryAllByShadowRole<T extends HTMLElement = HTMLElement>(role: ByRoleMatcher, options?: ByRoleOptions | undefined): T[] {
-  return queryAllByShadowRole(document.documentElement, role, options)
-}
+const getMultipleError = (_c: Element | null, role: string) =>
+  `Found multiple elements with the role of: ${role}`
+const getMissingError = (_c: Element | null, role: string) =>
+  `Unable to find an element with the role of: ${role}`
 
-function getAllByShadowRole<T extends HTMLElement = HTMLElement>(...args: RoleArgs): T[] {
-  const elements = queryAllByShadowRole(...args)
+const [
+  queryByShadowRole,
+  getAllByShadowRole,
+  getByShadowRole,
+  findAllByShadowRole,
+  findByShadowRole,
+] = buildQueries(queryAllByShadowRole, getMultipleError, getMissingError)
 
-  if (elements.length <= 0) {
-    throw new Error("Error")
+function toScreenRole<T extends Function> (callback: T) {
+  return function (...args: ScreenRoleArgs) {
+    return callback(document.documentElement, ...args)
   }
-
-  return elements as T[]
-}
-
-function getByShadowRole<T extends HTMLElement = HTMLElement>(...args: RoleArgs): ReturnType<typeof queryByShadowRole> {
-  const elements = queryAllByShadowRole<T>(...args)
-
-  if (elements.length > 0) {
-    return elements[0]
-  }
-
-  throw new Error("Error")
-}
-
-function screenGetAllByShadowRole<T extends HTMLElement = HTMLElement>(...args: ScreenRoleArgs): ReturnType<typeof queryAllByShadowRole>  {
-  return getAllByShadowRole<T>(document.documentElement, ...args)
-}
-
-function screenGetByShadowRole<T extends HTMLElement = HTMLElement>(...args: ScreenRoleArgs): ReturnType<typeof queryByShadowRole> {
-  return getByShadowRole<T>(document.documentElement, ...args)
 }
 
 const myScreen = {
   ...screen,
-  queryAllByShadowRole: screenQueryAllByShadowRole,
-  queryByShadowRole: screenQueryByShadowRole,
-  getAllByShadowRole: screenGetAllByShadowRole,
-  getByShadowRole: screenGetByShadowRole,
+  queryAllByShadowRole: toScreenRole(queryAllByShadowRole),
+  queryByShadowRole: toScreenRole(queryByShadowRole),
+  getAllByShadowRole: toScreenRole(getAllByShadowRole),
+  getByShadowRole: toScreenRole(getByShadowRole),
+  findAllByShadowRole: toScreenRole(findAllByShadowRole),
+  findByShadowRole: toScreenRole(findByShadowRole),
 }
 
 test('loads items eventually', async () => {
